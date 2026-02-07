@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>US National Debt Forecasting Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ============================================
+   CSS RESET & VARIABLES
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-card-hover: #222639;
+  --border-color: #2a2e3d;
+  --text-primary: #e4e6f0;
+  --text-secondary: #8b8fa3;
+  --text-muted: #5a5e72;
+  --accent-blue: #4e7cff;
+  --accent-green: #34d399;
+  --accent-red: #f87171;
+  --accent-amber: #fbbf24;
+  --accent-purple: #a78bfa;
+  --accent-cyan: #22d3ee;
+  --accent-pink: #f472b6;
+  --accent-orange: #fb923c;
+  --card-radius: 12px;
+  --card-padding: 20px;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px 0;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.dashboard-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.dashboard-header .subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.reset-button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.reset-button:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+  background: rgba(78,124,255,0.08);
+}
+.reset-button svg { width: 14px; height: 14px; }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "metrics  metrics"
+    "controls charts"
+    "assumptions assumptions";
+  gap: 20px;
+  padding: 20px 28px 28px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "metrics"
+      "controls"
+      "charts"
+      "assumptions";
+  }
+}
+
+/* ============================================
+   METRIC CARDS
+   ============================================ */
+.metrics-row {
+  grid-area: metrics;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 800px) {
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  padding: 16px 20px;
+  border-left: 3px solid var(--accent, var(--accent-blue));
+}
+.metric-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.metric-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.metric-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ============================================
+   CONTROLS PANEL
+   ============================================ */
+.controls-panel {
+  grid-area: controls;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  padding-right: 4px;
+}
+@media (max-width: 1100px) {
+  .controls-panel { max-height: none; }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+}
+
+.card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+/* Spending sliders */
+.control-group {
+  margin-bottom: 16px;
+}
+.control-group:last-child { margin-bottom: 0; }
+
+.control-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.control-header label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.control-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  cursor: pointer;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 2px rgba(78,124,255,0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  cursor: pointer;
+  border: 2px solid var(--bg-card);
+}
+
+.interest-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.15);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.interest-display .label {
+  font-size: 13px;
+  color: var(--accent-amber);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.interest-display .value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-amber);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Revenue toggles */
+.revenue-source {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.revenue-source:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+
+.revenue-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.revenue-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.toggle-switch input { display: none; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-color);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--accent-green);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+.revenue-params {
+  display: none;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(78,124,255,0.04);
+  border-radius: 8px;
+  gap: 8px;
+  flex-direction: column;
+}
+.revenue-params.active { display: flex; }
+
+.revenue-params .param-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.revenue-params label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rate-input {
+  width: 72px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rate-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+.revenue-estimate {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+}
+.revenue-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.revenue-desc a {
+  color: var(--accent-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.revenue-desc a:hover {
+  text-decoration: underline;
+}
+.revenue-base {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ============================================
+   CHARTS PANEL
+   ============================================ */
+.charts-panel {
+  grid-area: charts;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1.2fr auto 0.6fr;
+  grid-template-areas:
+    "debt    debt"
+    "rev     spend"
+    "deficit deficit";
+  gap: 16px;
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-card h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.chart-card .chart-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+.chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-debt    { grid-area: debt; min-height: 320px; }
+.chart-revenue { grid-area: rev;  min-height: 280px; }
+.chart-spend   { grid-area: spend; min-height: 280px; }
+.chart-deficit { grid-area: deficit; min-height: 160px; }
+
+/* ============================================
+   ASSUMPTIONS PANEL
+   ============================================ */
+.assumptions-panel {
+  grid-area: assumptions;
+}
+.assumptions-slider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px 24px;
+  margin-bottom: 14px;
+}
+.assumption-control .control-header {
+  margin-bottom: 4px;
+}
+.assumption-control .control-header label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.assumption-control .control-value {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.disclaimer {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Scrollbar */
+.controls-panel::-webkit-scrollbar { width: 6px; }
+.controls-panel::-webkit-scrollbar-track { background: transparent; }
+.controls-panel::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+.controls-panel::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.controls-panel { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+
+/* Number input spinner */
+.rate-input::-webkit-inner-spin-button,
+.rate-input::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================
+     HEADER
+     ============================================ -->
+<header class="dashboard-header">
+  <div>
+    <h1>US National Debt Forecasting Dashboard</h1>
+    <p class="subtitle">Explore how spending and revenue policies affect the 20-year debt trajectory</p>
+  </div>
+  <button id="btn-reset" class="reset-button" onclick="resetDefaults()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    Reset to Defaults
+  </button>
+</header>
+
+<!-- ============================================
+     DASHBOARD GRID
+     ============================================ -->
+<main class="dashboard-grid">
+
+  <!-- METRIC CARDS -->
+  <section class="metrics-row">
+    <div class="metric-card" style="--accent: var(--accent-blue)">
+      <span class="metric-label">National Debt (2025)</span>
+      <span class="metric-value" id="metric-debt">$36.2T</span>
+      <span class="metric-sub" id="metric-debt-sub">Starting baseline</span>
+    </div>
+    <div class="metric-card" style="--accent: var(--accent-green)">
+      <span class="metric-label">Annual Revenue</span>
+      <span class="metric-value" id="metric-revenue">$5.0T</span>
+      <span class="metric-sub" id="metric-revenue-sub">Existing + new sources</span>
+    </div>
+    <div class="metric-card" style="--accent: var(--accent-red)">
+      <span class="metric-label">Annual Spending</span>
+      <span class="metric-value" id="metric-spending">$7.0T</span>
+      <span class="metric-sub" id="metric-spending-sub">All categories</span>
+    </div>
+    <div class="metric-card" id="deficit-card" style="--accent: var(--accent-amber)">
+      <span class="metric-label">Annual Deficit / Surplus</span>
+      <span class="metric-value" id="metric-deficit">-$2.0T</span>
+      <span class="metric-sub" id="metric-deficit-sub">Revenue - Spending</span>
+    </div>
+  </section>
+
+  <!-- CONTROLS PANEL -->
+  <section class="controls-panel">
+
+    <!-- Spending Adjustments -->
+    <div class="card">
+      <h2>Spending Adjustments</h2>
+      <div id="spending-controls"></div>
+      <div class="interest-display">
+        <span class="label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Interest on Debt
+        </span>
+        <span class="value" id="interest-value">$1,231B</span>
+      </div>
+    </div>
+
+    <!-- Revenue Sources -->
+    <div class="card">
+      <h2>New Revenue Sources</h2>
+      <div id="revenue-controls"></div>
+    </div>
+
+  </section>
+
+  <!-- CHARTS PANEL -->
+  <section class="charts-panel">
+    <div class="chart-card chart-debt">
+      <h3>20-Year Debt Trajectory</h3>
+      <div class="chart-wrap"><canvas id="chart-debt"></canvas></div>
+    </div>
+    <div class="chart-card chart-revenue">
+      <h3>Revenue Breakdown (Year 1)</h3>
+      <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
+    </div>
+    <div class="chart-card chart-spend">
+      <h3>Spending Breakdown (Year 1)</h3>
+      <div class="chart-wrap"><canvas id="chart-spending"></canvas></div>
+    </div>
+    <div class="chart-card chart-deficit">
+      <h3>Revenue vs Spending (Year 1)</h3>
+      <div class="chart-wrap"><canvas id="chart-deficit"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ASSUMPTIONS -->
+  <section class="assumptions-panel card">
+    <h2>Growth Rate Assumptions</h2>
+    <div id="assumptions-controls" class="assumptions-slider-grid"></div>
+    <p class="disclaimer">This model uses simplified linear assumptions and does not account for behavioral responses (Laffer curve effects), economic feedback loops, political feasibility, implementation costs, or macroeconomic shocks. Tax base estimates are approximate. For educational exploration only.</p>
+  </section>
+
+</main>
+
+<!-- ============================================
+     JAVASCRIPT
+     ============================================ -->
+<script>
+/* ============================================
+   SECTION 1: CONSTANTS & DEFAULTS
+   ============================================ */
+const SPENDING_CATEGORIES = [
+  { key: 'socialSecurity', label: 'Social Security',     defaultVal: 1400, color: '#4e7cff' },
+  { key: 'medicare',       label: 'Medicare',            defaultVal: 912,  color: '#a78bfa' },
+  { key: 'medicaid',       label: 'Medicaid',            defaultVal: 626,  color: '#22d3ee' },
+  { key: 'defense',        label: 'Defense',             defaultVal: 900,  color: '#f87171' },
+  { key: 'veterans',       label: 'Veterans Benefits',   defaultVal: 326,  color: '#34d399' },
+  { key: 'other',          label: 'Other Spending',      defaultVal: 1836, color: '#8b8fa3' },
+];
+
+const REVENUE_SOURCES = [
+  { key: 'wealthTax',  label: 'Wealth Tax on Billionaires', rateLabel: 'Rate', rateUnit: '%', defaultRate: 2,  min: 0, max: 10, step: 0.1, base: 8200,   baseLabel: 'Base: $8.2T billionaire wealth',  baseGrowth: 0.06,  color: '#f472b6', calcRevenue: (rate, base) => base * (rate / 100),
+    wikiUrl: 'https://en.wikipedia.org/wiki/Wealth_tax',
+    description: 'An annual tax on the total net worth of individuals above a threshold \u2014 taxing what you own, not what you earn.' },
+  { key: 'landTax',    label: 'Land Value Tax',             rateLabel: 'Rate', rateUnit: '%', defaultRate: 1,  min: 0, max: 5,  step: 0.1, base: 25000,  baseLabel: 'Base: $25T total US land value',  baseGrowth: 0.03,  color: '#34d399', calcRevenue: (rate, base) => base * (rate / 100),
+    wikiUrl: 'https://en.wikipedia.org/wiki/Land_value_tax',
+    description: 'A tax on the unimproved value of land only (not buildings on it). Encourages development and can\u2019t be avoided since land can\u2019t be hidden or moved.' },
+  { key: 'stockTax',   label: 'Stock Wealth Tax',           rateLabel: 'Rate', rateUnit: '%', defaultRate: 0.1,min: 0, max: 2,  step: 0.01,base: 69000,  baseLabel: 'Base: $69T stock market cap',     baseGrowth: 0.07,  color: '#22d3ee', calcRevenue: (rate, base) => base * (rate / 100),
+    wikiUrl: 'https://en.wikipedia.org/wiki/Wealth_tax',
+    description: 'A tax on the total value of stock holdings, similar to a wealth tax but applied specifically to equities.' },
+  { key: 'carbonTax',  label: 'Carbon Tax',                 rateLabel: '$/ton',rateUnit: '',  defaultRate: 50, min: 0, max: 200,step: 5,   base: 5.0,    baseLabel: 'Base: 5B metric tons CO2/year',   baseGrowth: -0.02, color: '#fbbf24', calcRevenue: (rate, base) => rate * base,
+    wikiUrl: 'https://en.wikipedia.org/wiki/Carbon_tax',
+    description: 'A fee charged per ton of CO2 emitted, making pollution more expensive to incentivize cleaner energy.' },
+  { key: 'ftt',        label: 'Financial Transaction Tax',   rateLabel: 'Rate', rateUnit: '%', defaultRate: 0.1,min: 0, max: 1,  step: 0.01,base: 100000, baseLabel: 'Base: $100T annual trading volume',baseGrowth: 0.05,  color: '#fb923c', calcRevenue: (rate, base) => base * (rate / 100),
+    wikiUrl: 'https://en.wikipedia.org/wiki/Financial_transaction_tax',
+    description: 'A small tax on each stock, bond, or derivative trade \u2014 a fraction of a percent per transaction.' },
+  { key: 'vat',        label: 'Value-Added Tax (VAT)',       rateLabel: 'Rate', rateUnit: '%', defaultRate: 5,  min: 0, max: 25, step: 0.5, base: null,   baseLabel: 'Base: ~60% of GDP (consumption)', baseGrowth: null,   color: '#e879f9', calcRevenue: (rate, base) => base * (rate / 100),
+    wikiUrl: 'https://en.wikipedia.org/wiki/Value-added_tax',
+    description: 'A consumption tax added at each stage of production. Unlike a sales tax (applied once at purchase), VAT is collected incrementally along the supply chain. Consumers pay it in the final price of goods. Used by 175+ countries \u2014 every developed nation except the US.' },
+];
+
+// gdpConsumptionShare is not adjustable (kept constant)
+const GDP_CONSUMPTION_SHARE = 0.60;
+
+const ASSUMPTION_CONTROLS = [
+  { key: 'gdpGrowthRate',        label: 'GDP Growth (Real)',        defaultVal: 2.5,  min: 0,  max: 8,  step: 0.1, group: 'assumptions' },
+  { key: 'inflationRate',         label: 'Inflation Rate',           defaultVal: 2.5,  min: 0,  max: 8,  step: 0.1, group: 'assumptions' },
+  { key: 'baseRevenueGrowthRate', label: 'Base Revenue Growth',      defaultVal: 3.0,  min: 0,  max: 8,  step: 0.1, group: 'assumptions' },
+  { key: 'spendingGrowthRate',    label: 'Spending Growth',          defaultVal: 3.0,  min: 0,  max: 8,  step: 0.1, group: 'assumptions' },
+  { key: 'interestRate',          label: 'Avg Interest Rate on Debt',defaultVal: 3.4,  min: 0,  max: 10, step: 0.1, group: 'assumptions' },
+  { key: 'wealthTax',             label: 'Billionaire Wealth Growth',defaultVal: 6.0,  min: -5, max: 15, step: 0.5, group: 'revGrowth' },
+  { key: 'landTax',               label: 'Land Value Growth',        defaultVal: 3.0,  min: -5, max: 10, step: 0.5, group: 'revGrowth' },
+  { key: 'stockTax',              label: 'Stock Market Growth',      defaultVal: 7.0,  min: -5, max: 15, step: 0.5, group: 'revGrowth' },
+  { key: 'carbonTax',             label: 'CO2 Emissions Trend',      defaultVal: -2.0, min: -10,max: 5,  step: 0.5, group: 'revGrowth' },
+  { key: 'ftt',                   label: 'Trading Volume Growth',    defaultVal: 5.0,  min: -5, max: 15, step: 0.5, group: 'revGrowth' },
+];
+
+const DEFAULTS = {
+  nationalDebt: 36200,
+  gdp: 30600,
+  baseRevenue: 5000,
+  spending: {},
+  newRevenue: {},
+  assumptions: {
+    gdpGrowthRate: 0.025,
+    inflationRate: 0.025,
+    baseRevenueGrowthRate: 0.03,
+    spendingGrowthRate: 0.03,
+    interestRate: 0.034,
+  },
+  revGrowth: {
+    wealthTax: 0.06,
+    landTax: 0.03,
+    stockTax: 0.07,
+    carbonTax: -0.02,
+    ftt: 0.05,
+  },
+};
+SPENDING_CATEGORIES.forEach(c => DEFAULTS.spending[c.key] = c.defaultVal);
+REVENUE_SOURCES.forEach(s => DEFAULTS.newRevenue[s.key] = { enabled: false, rate: s.defaultRate });
+
+// Existing revenue proportions
+const EXISTING_REV_SPLIT = [
+  { label: 'Income Tax',    share: 0.52, color: '#4e7cff' },
+  { label: 'Payroll Tax',   share: 0.24, color: '#6366f1' },
+  { label: 'Corporate Tax', share: 0.10, color: '#a78bfa' },
+  { label: 'Other Existing',share: 0.14, color: '#64748b' },
+];
+
+/* ============================================
+   SECTION 2: STATE
+   ============================================ */
+let state = JSON.parse(JSON.stringify(DEFAULTS));
+
+/* ============================================
+   SECTION 3: ECONOMIC MODEL
+   ============================================ */
+function runProjection() {
+  const years = [];
+  let debt = state.nationalDebt;
+  let gdp = state.gdp;
+  let baseRevenue = state.baseRevenue;
+  const a = state.assumptions;
+
+  // Clone spending values for compounding
+  const spending = { ...state.spending };
+
+  // Clone tax bases
+  const taxBases = {};
+  REVENUE_SOURCES.forEach(s => {
+    taxBases[s.key] = s.base;
+  });
+
+  const nominalGdpGrowth = a.gdpGrowthRate + a.inflationRate;
+
+  for (let y = 0; y <= 20; y++) {
+    // Interest on current debt
+    const interest = debt * a.interestRate;
+
+    // Total spending
+    let totalSpending = interest;
+    const spendBreakdown = { interest };
+    SPENDING_CATEGORIES.forEach(c => {
+      spendBreakdown[c.key] = spending[c.key];
+      totalSpending += spending[c.key];
+    });
+
+    // New revenue from enabled taxes
+    let newRevenueTotal = 0;
+    const revBreakdown = {};
+    REVENUE_SOURCES.forEach(s => {
+      if (!state.newRevenue[s.key].enabled) return;
+      const rate = state.newRevenue[s.key].rate;
+      let base;
+      if (s.key === 'vat') {
+        base = gdp * GDP_CONSUMPTION_SHARE;
+      } else {
+        base = taxBases[s.key];
+      }
+      const rev = s.calcRevenue(rate, base);
+      revBreakdown[s.key] = rev;
+      newRevenueTotal += rev;
+    });
+
+    const totalRevenue = baseRevenue + newRevenueTotal;
+    const deficit = totalSpending - totalRevenue;
+
+    years.push({
+      year: 2025 + y,
+      debt,
+      gdp,
+      totalRevenue,
+      baseRevenue,
+      newRevenue: newRevenueTotal,
+      revenueBreakdown: revBreakdown,
+      totalSpending,
+      spendingBreakdown: spendBreakdown,
+      deficit,
+      debtToGdp: (debt / gdp) * 100,
+    });
+
+    // Advance to next year
+    debt += deficit;
+    gdp *= (1 + nominalGdpGrowth);
+    baseRevenue *= (1 + a.baseRevenueGrowthRate);
+
+    SPENDING_CATEGORIES.forEach(c => {
+      spending[c.key] *= (1 + a.spendingGrowthRate);
+    });
+
+    REVENUE_SOURCES.forEach(s => {
+      if (s.key === 'vat') return; // VAT base grows with GDP
+      // For wealth-based taxes, subtract revenue collected (the tax shrinks the base)
+      if (s.key === 'wealthTax' || s.key === 'landTax' || s.key === 'stockTax') {
+        const collected = revBreakdown[s.key] || 0;
+        taxBases[s.key] = Math.max(0, taxBases[s.key] - collected);
+      }
+      const growth = state.revGrowth[s.key] != null ? state.revGrowth[s.key] : s.baseGrowth;
+      taxBases[s.key] *= (1 + growth);
+    });
+  }
+
+  return years;
+}
+
+/* ============================================
+   SECTION 4: FORMATTING
+   ============================================ */
+function fmt(billions) {
+  if (billions == null || isNaN(billions)) return '$0';
+  const abs = Math.abs(billions);
+  const sign = billions < 0 ? '-' : '';
+  if (abs >= 1000) return sign + '$' + (abs / 1000).toFixed(1) + 'T';
+  if (abs >= 1) return sign + '$' + Math.round(abs).toLocaleString() + 'B';
+  return sign + '$' + (abs * 1000).toFixed(0) + 'M';
+}
+
+function fmtShort(billions) {
+  if (billions == null || isNaN(billions)) return '$0';
+  const abs = Math.abs(billions);
+  const sign = billions < 0 ? '-' : '';
+  if (abs >= 1000) return sign + '$' + (abs / 1000).toFixed(1) + 'T';
+  return sign + '$' + Math.round(abs) + 'B';
+}
+
+/* ============================================
+   SECTION 5: BUILD UI CONTROLS
+   ============================================ */
+function buildSpendingControls() {
+  const container = document.getElementById('spending-controls');
+  container.innerHTML = '';
+  SPENDING_CATEGORIES.forEach(cat => {
+    const maxVal = cat.defaultVal * 2;
+    const div = document.createElement('div');
+    div.className = 'control-group';
+    div.innerHTML = `
+      <div class="control-header">
+        <label for="slider-${cat.key}">${cat.label}</label>
+        <span class="control-value" id="val-${cat.key}">${fmtShort(state.spending[cat.key])}</span>
+      </div>
+      <input type="range" id="slider-${cat.key}" min="0" max="${maxVal}" value="${state.spending[cat.key]}" step="10">
+    `;
+    container.appendChild(div);
+
+    const slider = div.querySelector('input[type="range"]');
+    slider.addEventListener('input', () => {
+      state.spending[cat.key] = parseFloat(slider.value);
+      document.getElementById(`val-${cat.key}`).textContent = fmtShort(state.spending[cat.key]);
+      scheduleRecalc();
+    });
+  });
+}
+
+function buildRevenueControls() {
+  const container = document.getElementById('revenue-controls');
+  container.innerHTML = '';
+  REVENUE_SOURCES.forEach(src => {
+    const div = document.createElement('div');
+    div.className = 'revenue-source';
+    div.innerHTML = `
+      <div class="revenue-header">
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-${src.key}" ${state.newRevenue[src.key].enabled ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="revenue-name">${src.label}</span>
+      </div>
+      <div class="revenue-desc">${src.description} <a href="${src.wikiUrl}" target="_blank" rel="noopener">Learn more &rarr;</a></div>
+      <div class="revenue-params ${state.newRevenue[src.key].enabled ? 'active' : ''}" id="params-${src.key}">
+        <div class="param-row">
+          <label>${src.rateLabel}: <input type="number" class="rate-input" id="rate-${src.key}" value="${state.newRevenue[src.key].rate}" min="${src.min}" max="${src.max}" step="${src.step}"> ${src.rateUnit}</label>
+          <span class="revenue-estimate" id="est-${src.key}">Est. ${fmt(0)}/yr</span>
+        </div>
+      </div>
+      <div class="revenue-base">${src.baseLabel}</div>
+    `;
+    container.appendChild(div);
+
+    const toggle = div.querySelector(`#toggle-${src.key}`);
+    const params = div.querySelector(`#params-${src.key}`);
+    const rateInput = div.querySelector(`#rate-${src.key}`);
+
+    toggle.addEventListener('change', () => {
+      state.newRevenue[src.key].enabled = toggle.checked;
+      params.classList.toggle('active', toggle.checked);
+      scheduleRecalc();
+    });
+
+    rateInput.addEventListener('input', () => {
+      let val = parseFloat(rateInput.value);
+      if (isNaN(val)) val = 0;
+      state.newRevenue[src.key].rate = val;
+      scheduleRecalc();
+    });
+  });
+}
+
+function buildAssumptionControls() {
+  const container = document.getElementById('assumptions-controls');
+  container.innerHTML = '';
+  ASSUMPTION_CONTROLS.forEach(ac => {
+    // Read current value from state (stored as decimal, displayed as %)
+    let currentPct;
+    if (ac.group === 'assumptions') {
+      currentPct = state.assumptions[ac.key] * 100;
+    } else {
+      currentPct = state.revGrowth[ac.key] * 100;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'assumption-control control-group';
+    div.innerHTML = `
+      <div class="control-header">
+        <label for="assumption-${ac.key}">${ac.label}</label>
+        <span class="control-value" id="aval-${ac.key}">${currentPct.toFixed(1)}%</span>
+      </div>
+      <input type="range" id="assumption-${ac.key}" min="${ac.min}" max="${ac.max}" value="${currentPct}" step="${ac.step}">
+    `;
+    container.appendChild(div);
+
+    const slider = div.querySelector('input[type="range"]');
+    slider.addEventListener('input', () => {
+      const pct = parseFloat(slider.value);
+      document.getElementById(`aval-${ac.key}`).textContent = pct.toFixed(1) + '%';
+      if (ac.group === 'assumptions') {
+        state.assumptions[ac.key] = pct / 100;
+      } else {
+        state.revGrowth[ac.key] = pct / 100;
+      }
+      scheduleRecalc();
+    });
+  });
+}
+
+/* ============================================
+   SECTION 6: CHARTS
+   ============================================ */
+let debtChart, revenueChart, spendingChart, deficitChart;
+
+const CHART_TEXT_COLOR = '#8b8fa3';
+const CHART_GRID_COLOR = 'rgba(42,46,61,0.5)';
+
+function initCharts() {
+  Chart.defaults.color = CHART_TEXT_COLOR;
+  Chart.defaults.font.family = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+  // Debt trajectory
+  debtChart = new Chart(document.getElementById('chart-debt'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'National Debt',
+          data: [],
+          borderColor: '#f87171',
+          backgroundColor: 'rgba(248,113,113,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          borderWidth: 2.5,
+        },
+        {
+          label: 'GDP',
+          data: [],
+          borderColor: '#4e7cff',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          borderWidth: 2,
+          borderDash: [6, 4],
+        },
+        {
+          label: 'Total Spending',
+          data: [],
+          borderColor: '#fb923c',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          borderWidth: 2,
+        },
+        {
+          label: 'Total Revenue',
+          data: [],
+          borderColor: '#34d399',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { font: { size: 12 }, usePointStyle: true, pointStyleWidth: 10, padding: 16 } },
+        tooltip: {
+          backgroundColor: '#1a1d27',
+          titleColor: '#e4e6f0',
+          bodyColor: '#8b8fa3',
+          borderColor: '#2a2e3d',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` },
+        },
+      },
+      scales: {
+        x: { grid: { color: CHART_GRID_COLOR }, ticks: { maxTicksLimit: 11 } },
+        y: { grid: { color: CHART_GRID_COLOR }, ticks: { callback: v => fmt(v) } },
+      },
+    },
+  });
+
+  // Revenue doughnut
+  revenueChart = new Chart(document.getElementById('chart-revenue'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderColor: '#1a1d27', borderWidth: 2 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, usePointStyle: true, pointStyleWidth: 8 } },
+        tooltip: {
+          backgroundColor: '#1a1d27', titleColor: '#e4e6f0', bodyColor: '#8b8fa3',
+          borderColor: '#2a2e3d', borderWidth: 1,
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0.0';
+              return `${ctx.label}: ${fmt(ctx.parsed)} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Spending doughnut
+  spendingChart = new Chart(document.getElementById('chart-spending'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderColor: '#1a1d27', borderWidth: 2 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, usePointStyle: true, pointStyleWidth: 8 } },
+        tooltip: {
+          backgroundColor: '#1a1d27', titleColor: '#e4e6f0', bodyColor: '#8b8fa3',
+          borderColor: '#2a2e3d', borderWidth: 1,
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0.0';
+              return `${ctx.label}: ${fmt(ctx.parsed)} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Deficit bar
+  deficitChart = new Chart(document.getElementById('chart-deficit'), {
+    type: 'bar',
+    data: {
+      labels: [''],
+      datasets: [
+        { label: 'Revenue', data: [0], backgroundColor: '#34d399', barPercentage: 0.5 },
+        { label: 'Spending', data: [0], backgroundColor: '#f87171', barPercentage: 0.5 },
+      ],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { font: { size: 11 }, usePointStyle: true, pointStyleWidth: 8, padding: 16 } },
+        tooltip: {
+          backgroundColor: '#1a1d27', titleColor: '#e4e6f0', bodyColor: '#8b8fa3',
+          borderColor: '#2a2e3d', borderWidth: 1,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.x)}` },
+        },
+      },
+      scales: {
+        x: { grid: { color: CHART_GRID_COLOR }, ticks: { callback: v => fmt(v) } },
+        y: { display: false },
+      },
+    },
+  });
+}
+
+function updateCharts(projection) {
+  // Debt trajectory
+  debtChart.data.labels = projection.map(y => y.year.toString());
+  debtChart.data.datasets[0].data = projection.map(y => y.debt);
+  debtChart.data.datasets[1].data = projection.map(y => y.gdp);
+  debtChart.data.datasets[2].data = projection.map(y => y.totalSpending);
+  debtChart.data.datasets[3].data = projection.map(y => y.totalRevenue);
+  debtChart.update('none');
+
+  const yr0 = projection[0];
+
+  // Revenue doughnut
+  const revLabels = [];
+  const revData = [];
+  const revColors = [];
+  EXISTING_REV_SPLIT.forEach(s => {
+    revLabels.push(s.label);
+    revData.push(yr0.baseRevenue * s.share);
+    revColors.push(s.color);
+  });
+  REVENUE_SOURCES.forEach(s => {
+    const val = yr0.revenueBreakdown[s.key];
+    if (val && val > 0) {
+      revLabels.push(s.label);
+      revData.push(val);
+      revColors.push(s.color);
+    }
+  });
+  revenueChart.data.labels = revLabels;
+  revenueChart.data.datasets[0].data = revData;
+  revenueChart.data.datasets[0].backgroundColor = revColors;
+  revenueChart.update('none');
+
+  // Spending doughnut
+  const spendLabels = [];
+  const spendData = [];
+  const spendColors = [];
+  SPENDING_CATEGORIES.forEach(c => {
+    spendLabels.push(c.label);
+    spendData.push(yr0.spendingBreakdown[c.key]);
+    spendColors.push(c.color);
+  });
+  spendLabels.push('Interest on Debt');
+  spendData.push(yr0.spendingBreakdown.interest);
+  spendColors.push('#fbbf24');
+  spendingChart.data.labels = spendLabels;
+  spendingChart.data.datasets[0].data = spendData;
+  spendingChart.data.datasets[0].backgroundColor = spendColors;
+  spendingChart.update('none');
+
+  // Deficit bar
+  deficitChart.data.datasets[0].data = [yr0.totalRevenue];
+  deficitChart.data.datasets[1].data = [yr0.totalSpending];
+  deficitChart.update('none');
+}
+
+/* ============================================
+   SECTION 7: UI UPDATES
+   ============================================ */
+function updateMetrics(yr0) {
+  document.getElementById('metric-debt').textContent = fmt(yr0.debt);
+  document.getElementById('metric-revenue').textContent = fmt(yr0.totalRevenue);
+  document.getElementById('metric-spending').textContent = fmt(yr0.totalSpending);
+
+  const deficitVal = yr0.deficit;
+  const deficitEl = document.getElementById('metric-deficit');
+  const deficitCard = document.getElementById('deficit-card');
+  if (deficitVal > 0) {
+    deficitEl.textContent = '-' + fmt(deficitVal);
+    deficitEl.style.color = 'var(--accent-red)';
+    deficitCard.style.setProperty('--accent', 'var(--accent-red)');
+    document.getElementById('metric-deficit-sub').textContent = 'Deficit';
+  } else {
+    deficitEl.textContent = '+' + fmt(Math.abs(deficitVal));
+    deficitEl.style.color = 'var(--accent-green)';
+    deficitCard.style.setProperty('--accent', 'var(--accent-green)');
+    document.getElementById('metric-deficit-sub').textContent = 'Surplus';
+  }
+
+  document.getElementById('interest-value').textContent = fmtShort(yr0.spendingBreakdown.interest);
+}
+
+function updateRevenueEstimates() {
+  REVENUE_SOURCES.forEach(src => {
+    const estEl = document.getElementById(`est-${src.key}`);
+    if (!state.newRevenue[src.key].enabled) {
+      estEl.textContent = '';
+      return;
+    }
+    const rate = state.newRevenue[src.key].rate;
+    let base;
+    if (src.key === 'vat') {
+      base = state.gdp * GDP_CONSUMPTION_SHARE;
+    } else {
+      base = src.base;
+    }
+    const rev = src.calcRevenue(rate, base);
+    estEl.textContent = `Est. ${fmt(rev)}/yr`;
+  });
+}
+
+/* ============================================
+   SECTION 8: RECALCULATE
+   ============================================ */
+let recalcTimer;
+function scheduleRecalc() {
+  clearTimeout(recalcTimer);
+  recalcTimer = setTimeout(recalculate, 30);
+}
+
+function recalculate() {
+  const projection = runProjection();
+  updateMetrics(projection[0]);
+  updateCharts(projection);
+  updateRevenueEstimates();
+}
+
+/* ============================================
+   SECTION 9: RESET
+   ============================================ */
+function resetDefaults() {
+  state = JSON.parse(JSON.stringify(DEFAULTS));
+
+  // Reset slider DOM
+  SPENDING_CATEGORIES.forEach(cat => {
+    const slider = document.getElementById(`slider-${cat.key}`);
+    if (slider) slider.value = cat.defaultVal;
+    const valEl = document.getElementById(`val-${cat.key}`);
+    if (valEl) valEl.textContent = fmtShort(cat.defaultVal);
+  });
+
+  // Reset toggle + rate DOM
+  REVENUE_SOURCES.forEach(src => {
+    const toggle = document.getElementById(`toggle-${src.key}`);
+    if (toggle) toggle.checked = false;
+    const params = document.getElementById(`params-${src.key}`);
+    if (params) params.classList.remove('active');
+    const rateInput = document.getElementById(`rate-${src.key}`);
+    if (rateInput) rateInput.value = src.defaultRate;
+  });
+
+  // Reset assumption sliders
+  ASSUMPTION_CONTROLS.forEach(ac => {
+    const slider = document.getElementById(`assumption-${ac.key}`);
+    if (slider) slider.value = ac.defaultVal;
+    const valEl = document.getElementById(`aval-${ac.key}`);
+    if (valEl) valEl.textContent = ac.defaultVal.toFixed(1) + '%';
+  });
+
+  recalculate();
+}
+
+/* ============================================
+   SECTION 10: INIT
+   ============================================ */
+function init() {
+  buildSpendingControls();
+  buildRevenueControls();
+  buildAssumptionControls();
+  initCharts();
+  recalculate();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

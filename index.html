@@ -379,9 +379,10 @@ input[type="range"]::-moz-range-thumb {
   grid-area: charts;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1.2fr auto 0.6fr;
+  grid-template-rows: 1.2fr auto auto 0.6fr;
   grid-template-areas:
     "debt    debt"
+    "year    year"
     "rev     spend"
     "deficit deficit";
   gap: 16px;
@@ -412,6 +413,30 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .chart-debt    { grid-area: debt; min-height: 320px; }
+.chart-year-selector {
+  grid-area: year;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.chart-year-selector .year-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.chart-year-selector .year-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.chart-year-selector input[type="range"] {
+  flex: 1;
+}
 .chart-revenue { grid-area: rev;  min-height: 280px; }
 .chart-spend   { grid-area: spend; min-height: 280px; }
 .chart-deficit { grid-area: deficit; min-height: 160px; }
@@ -539,16 +564,21 @@ input[type="range"]::-moz-range-thumb {
       <h3>20-Year Debt Trajectory</h3>
       <div class="chart-wrap"><canvas id="chart-debt"></canvas></div>
     </div>
+    <div class="chart-card chart-year-selector">
+      <span class="year-label">Projection Year</span>
+      <input type="range" id="year-slider" min="0" max="20" value="0" step="1">
+      <span class="year-value" id="year-value">2025</span>
+    </div>
     <div class="chart-card chart-revenue">
-      <h3>Revenue Breakdown (Year 1)</h3>
+      <h3 id="title-revenue">Revenue Breakdown (2025)</h3>
       <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
     </div>
     <div class="chart-card chart-spend">
-      <h3>Spending Breakdown (Year 1)</h3>
+      <h3 id="title-spending">Spending Breakdown (2025)</h3>
       <div class="chart-wrap"><canvas id="chart-spending"></canvas></div>
     </div>
     <div class="chart-card chart-deficit">
-      <h3>Revenue vs Spending (Year 1)</h3>
+      <h3 id="title-deficit">Revenue vs Spending (2025)</h3>
       <div class="chart-wrap"><canvas id="chart-deficit"></canvas></div>
     </div>
   </section>
@@ -1037,7 +1067,12 @@ function initCharts() {
   });
 }
 
+let selectedYear = 0;
+let lastProjection = null;
+
 function updateCharts(projection) {
+  lastProjection = projection;
+
   // Debt trajectory
   debtChart.data.labels = projection.map(y => y.year.toString());
   debtChart.data.datasets[0].data = projection.map(y => y.debt);
@@ -1046,7 +1081,17 @@ function updateCharts(projection) {
   debtChart.data.datasets[3].data = projection.map(y => y.totalRevenue);
   debtChart.update('none');
 
-  const yr0 = projection[0];
+  updateBreakdownCharts(projection);
+}
+
+function updateBreakdownCharts(projection) {
+  const yr = projection[selectedYear];
+  const yearLabel = yr.year;
+
+  // Update chart titles
+  document.getElementById('title-revenue').textContent = `Revenue Breakdown (${yearLabel})`;
+  document.getElementById('title-spending').textContent = `Spending Breakdown (${yearLabel})`;
+  document.getElementById('title-deficit').textContent = `Revenue vs Spending (${yearLabel})`;
 
   // Revenue doughnut
   const revLabels = [];
@@ -1054,11 +1099,11 @@ function updateCharts(projection) {
   const revColors = [];
   EXISTING_REV_SPLIT.forEach(s => {
     revLabels.push(s.label);
-    revData.push(yr0.baseRevenue * s.share);
+    revData.push(yr.baseRevenue * s.share);
     revColors.push(s.color);
   });
   REVENUE_SOURCES.forEach(s => {
-    const val = yr0.revenueBreakdown[s.key];
+    const val = yr.revenueBreakdown[s.key];
     if (val && val > 0) {
       revLabels.push(s.label);
       revData.push(val);
@@ -1076,11 +1121,11 @@ function updateCharts(projection) {
   const spendColors = [];
   SPENDING_CATEGORIES.forEach(c => {
     spendLabels.push(c.label);
-    spendData.push(yr0.spendingBreakdown[c.key]);
+    spendData.push(yr.spendingBreakdown[c.key]);
     spendColors.push(c.color);
   });
   spendLabels.push('Interest on Debt');
-  spendData.push(yr0.spendingBreakdown.interest);
+  spendData.push(yr.spendingBreakdown.interest);
   spendColors.push('#fbbf24');
   spendingChart.data.labels = spendLabels;
   spendingChart.data.datasets[0].data = spendData;
@@ -1088,8 +1133,8 @@ function updateCharts(projection) {
   spendingChart.update('none');
 
   // Deficit bar
-  deficitChart.data.datasets[0].data = [yr0.totalRevenue];
-  deficitChart.data.datasets[1].data = [yr0.totalSpending];
+  deficitChart.data.datasets[0].data = [yr.totalRevenue];
+  deficitChart.data.datasets[1].data = [yr.totalSpending];
   deficitChart.update('none');
 }
 
@@ -1186,6 +1231,13 @@ function resetDefaults() {
     if (valEl) valEl.textContent = ac.defaultVal.toFixed(1) + '%';
   });
 
+  // Reset year slider
+  selectedYear = 0;
+  const yearSlider = document.getElementById('year-slider');
+  if (yearSlider) yearSlider.value = 0;
+  const yearValue = document.getElementById('year-value');
+  if (yearValue) yearValue.textContent = '2025';
+
   recalculate();
 }
 
@@ -1197,6 +1249,15 @@ function init() {
   buildRevenueControls();
   buildAssumptionControls();
   initCharts();
+
+  // Year slider
+  const yearSlider = document.getElementById('year-slider');
+  yearSlider.addEventListener('input', () => {
+    selectedYear = parseInt(yearSlider.value);
+    document.getElementById('year-value').textContent = (2025 + selectedYear).toString();
+    if (lastProjection) updateBreakdownCharts(lastProjection);
+  });
+
   recalculate();
 }
 

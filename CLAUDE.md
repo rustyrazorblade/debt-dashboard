@@ -34,7 +34,7 @@ DEFAULTS (const) → deep clone → state (mutable, the single source of truth)
 ```
 
 The `state` object contains:
-- `nationalDebt`: starting debt in billions (36,200)
+- `nationalDebt`: starting debt in billions (38,000)
 - `gdp`: starting GDP in billions (30,600)
 - `baseRevenue`: existing federal revenue in billions (5,000)
 - `spending`: object keyed by category (`socialSecurity`, `medicare`, etc.) — values set by sliders
@@ -103,7 +103,7 @@ Add an entry to `ASSUMPTION_CONTROLS` with `group: 'assumptions'` or `group: 're
 ## Baseline Data Sources
 
 All figures are FY2025 approximations based on CBO, Treasury, and BEA data:
-- National debt: ~$36.2T (debt held by public)
+- National debt: ~$38.0T (debt held by public)
 - GDP: ~$30.6T
 - Federal revenue: ~$5.0T (breakdown: income 52%, payroll 24%, corporate 10%, other 14%)
 - Federal spending: ~$7.0T (Social Security $1.4T, Medicare $912B, Medicaid $626B, Defense $900B, Veterans $326B, Other $1.8T, Interest ~$1.2T)

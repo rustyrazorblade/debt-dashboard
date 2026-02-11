@@ -513,22 +513,22 @@ input[type="range"]::-moz-range-thumb {
   <!-- METRIC CARDS -->
   <section class="metrics-row">
     <div class="metric-card" style="--accent: var(--accent-blue)">
-      <span class="metric-label">National Debt (2025)</span>
+      <span class="metric-label" id="metric-debt-label">National Debt (2025)</span>
       <span class="metric-value" id="metric-debt">$38.0T</span>
       <span class="metric-sub" id="metric-debt-sub">Starting baseline</span>
     </div>
     <div class="metric-card" style="--accent: var(--accent-green)">
-      <span class="metric-label">Annual Revenue</span>
+      <span class="metric-label" id="metric-revenue-label">Annual Revenue (2025)</span>
       <span class="metric-value" id="metric-revenue">$5.0T</span>
       <span class="metric-sub" id="metric-revenue-sub">Existing + new sources</span>
     </div>
     <div class="metric-card" style="--accent: var(--accent-red)">
-      <span class="metric-label">Annual Spending</span>
+      <span class="metric-label" id="metric-spending-label">Annual Spending (2025)</span>
       <span class="metric-value" id="metric-spending">$7.0T</span>
       <span class="metric-sub" id="metric-spending-sub">All categories</span>
     </div>
     <div class="metric-card" id="deficit-card" style="--accent: var(--accent-amber)">
-      <span class="metric-label">Annual Deficit / Surplus</span>
+      <span class="metric-label" id="metric-deficit-label">Annual Deficit / Surplus (2025)</span>
       <span class="metric-value" id="metric-deficit">-$2.0T</span>
       <span class="metric-sub" id="metric-deficit-sub">Revenue - Spending</span>
     </div>
@@ -761,7 +761,7 @@ function runProjection() {
     REVENUE_SOURCES.forEach(s => {
       if (s.key === 'vat') return; // VAT base grows with GDP
       // For wealth-based taxes, subtract revenue collected (the tax shrinks the base)
-      if (s.key === 'wealthTax' || s.key === 'landTax' || s.key === 'stockTax') {
+      if (s.key === 'wealthTax' || s.key === 'stockTax') {
         const collected = revBreakdown[s.key] || 0;
         taxBases[s.key] = Math.max(0, taxBases[s.key] - collected);
       }
@@ -1088,6 +1088,9 @@ function updateBreakdownCharts(projection) {
   const yr = projection[selectedYear];
   const yearLabel = yr.year;
 
+  // Update metric cards for the selected year
+  updateMetrics(yr);
+
   // Update chart titles
   document.getElementById('title-revenue').textContent = `Revenue Breakdown (${yearLabel})`;
   document.getElementById('title-spending').textContent = `Spending Breakdown (${yearLabel})`;
@@ -1141,12 +1144,18 @@ function updateBreakdownCharts(projection) {
 /* ============================================
    SECTION 7: UI UPDATES
    ============================================ */
-function updateMetrics(yr0) {
-  document.getElementById('metric-debt').textContent = fmt(yr0.debt);
-  document.getElementById('metric-revenue').textContent = fmt(yr0.totalRevenue);
-  document.getElementById('metric-spending').textContent = fmt(yr0.totalSpending);
+function updateMetrics(yr) {
+  const yearLabel = yr.year;
+  document.getElementById('metric-debt-label').textContent = `National Debt (${yearLabel})`;
+  document.getElementById('metric-revenue-label').textContent = `Annual Revenue (${yearLabel})`;
+  document.getElementById('metric-spending-label').textContent = `Annual Spending (${yearLabel})`;
+  document.getElementById('metric-deficit-label').textContent = `Annual Deficit / Surplus (${yearLabel})`;
 
-  const deficitVal = yr0.deficit;
+  document.getElementById('metric-debt').textContent = fmt(yr.debt);
+  document.getElementById('metric-revenue').textContent = fmt(yr.totalRevenue);
+  document.getElementById('metric-spending').textContent = fmt(yr.totalSpending);
+
+  const deficitVal = yr.deficit;
   const deficitEl = document.getElementById('metric-deficit');
   const deficitCard = document.getElementById('deficit-card');
   if (deficitVal > 0) {
@@ -1161,7 +1170,7 @@ function updateMetrics(yr0) {
     document.getElementById('metric-deficit-sub').textContent = 'Surplus';
   }
 
-  document.getElementById('interest-value').textContent = fmtShort(yr0.spendingBreakdown.interest);
+  document.getElementById('interest-value').textContent = fmtShort(yr.spendingBreakdown.interest);
 }
 
 function updateRevenueEstimates() {
@@ -1194,7 +1203,6 @@ function scheduleRecalc() {
 
 function recalculate() {
   const projection = runProjection();
-  updateMetrics(projection[0]);
   updateCharts(projection);
   updateRevenueEstimates();
 }
